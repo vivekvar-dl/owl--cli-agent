@@ -1,0 +1,9 @@
+google-generativeai
+rich
+toml>=0.10.2
+psutil
+google-api-python-client
+beautifulsoup4
+requests
+python-dotenv
+pywin32 
