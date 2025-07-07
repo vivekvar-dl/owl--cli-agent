@@ -10,6 +10,7 @@ from .git_utils import get_staged_diff
 import subprocess
 import difflib
 import os
+import ast
 
 console = Console()
 config = get_config()
@@ -62,7 +63,23 @@ def handle_doc(file_path: str, symbol: str or None):
     if "error" in response:
         console.print(f"[bold red]Error from API: {response['error']}[/bold red]")
     else:
-        console.print(Panel(response.get("docstring", "No docstring provided."), title="Generated Docstring", border_style="green"))
+        docstring = response.get("docstring", "No docstring provided.")
+        try:
+            # The model sometimes returns a string literal including quotes and escaped newlines.
+            # ast.literal_eval will safely parse this into a normal string.
+            docstring_content = ast.literal_eval(docstring)
+            # Sometimes it might be double-encoded
+            if isinstance(docstring_content, str) and docstring_content.startswith('"""'):
+                 docstring_content = ast.literal_eval(docstring_content)
+        except (ValueError, SyntaxError):
+            # If it's not a string literal, use it as is.
+            docstring_content = docstring
+
+        # Finally, remove the outer triple quotes if they exist
+        if isinstance(docstring_content, str):
+            docstring_content = docstring_content.strip().strip('"""')
+
+        console.print(Panel(docstring_content, title="Generated Docstring", border_style="green"))
 
 def handle_refactor(file_path: str, instruction: str, symbol: str or None):
     """Handler for the 'refactor' command."""
