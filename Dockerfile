@@ -4,18 +4,15 @@ FROM python:3.10-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
-COPY requirements.txt .
+# Copy the entire project directory into the container at /app
+COPY . /app/
 
 # Install any needed packages specified in requirements.txt
 # Use --no-cache-dir to keep the image size down
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application's code into the container at /app
-COPY . .
-
 # Set up the entrypoint to run the CLI
-ENTRYPOINT ["python", "-m", "cli"]
+ENTRYPOINT ["python", "cli/cli.py"]
 
 # The default command can be to show the help message
 CMD ["--help"] 
