@@ -1,13 +1,15 @@
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.diff import Diff
+from rich.syntax import Syntax
 
 from .parser import get_symbol_code
 from .api import GeminiClient
 from .config import get_config, get_gemini_api_key
 from .git_utils import get_staged_diff
 import subprocess
+import difflib
+import os
 
 console = Console()
 config = get_config()
@@ -81,8 +83,14 @@ def handle_refactor(file_path: str, instruction: str, symbol: str or None):
         console.print("[bold yellow]The model did not return any code to refactor.[/bold yellow]")
         return
 
-    diff = Diff(original_code.splitlines(), refactored_code.splitlines(), fromfile="Original", tofile="Refactored")
-    console.print(diff)
+    diff = difflib.unified_diff(
+        original_code.splitlines(keepends=True),
+        refactored_code.splitlines(keepends=True),
+        fromfile='original',
+        tofile='refactored',
+    )
+    console.print("\n[bold]Diff:[/bold]")
+    console.print("".join(diff))
 
     if console.input("\n [bold yellow]Apply these changes? [y/n]:[/] ").lower() == "y":
         if _apply_refactoring(file_path, file_content, refactored_code, start_line, end_line):
