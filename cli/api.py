@@ -497,6 +497,30 @@ Only provide the code for the function/class that was refactored.
 """
         return self._send_request(prompt)
 
+    def generate_fix(self, code: str, error_message: str) -> Dict[str, Any]:
+        """Generates a fix for a piece of code based on a traceback."""
+        prompt = f"""
+You are an expert software engineer and debugger. Your task is to analyze the following code and its error message,
+and then provide a corrected version of the code and an explanation of the fix.
+
+**Error Message/Traceback:**
+```
+{error_message}
+```
+
+**Code with the Bug:**
+```python
+{code}
+```
+
+Respond with a single JSON object with two keys:
+1.  `explanation`: A step-by-step explanation of what caused the error and how the fix addresses it.
+2.  `fixed_code`: The complete, corrected code snippet.
+
+Your JSON response should be valid and well-formatted.
+"""
+        return self._send_request(prompt)
+
 
 # Create a global API client instance
 gemini_client = GeminiClient(api_key=get_config().api_key) 

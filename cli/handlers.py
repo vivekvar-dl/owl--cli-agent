@@ -132,6 +132,34 @@ def handle_test(file_path: str, symbol: str or None):
         console.print(Panel(response.get("test_code", "No test code provided."), title="Generated Unit Test", border_style="green"))
 
 
+def handle_debug(file_path: str, error_message: str):
+    """Handler for the 'debug' command."""
+    console.print(f"🐛 Debugging '{file_path}'...")
+
+    # For debugging, we'll use the whole file's content.
+    # In the future, we could try to intelligently find the symbol from the traceback.
+    code, _, _, _ = get_symbol_code(file_path, None)
+    if not code:
+        console.print(f"[bold red]Error: Could not read file '{file_path}'.[/bold red]")
+        return
+
+    response = gemini_client.generate_fix(code, error_message)
+
+    if "error" in response:
+        console.print(f"[bold red]Error from API: {response['error']}[/bold red]")
+        return
+
+    explanation = response.get("explanation", "No explanation provided.")
+    fixed_code = response.get("fixed_code")
+
+    console.print(Panel(explanation, title="Explanation of the Fix", border_style="green"))
+
+    if fixed_code:
+        console.print(Panel(Syntax(fixed_code, "python", theme="default", line_numbers=True), title="Suggested Fix", border_style="yellow"))
+    else:
+        console.print("[bold yellow]The model did not return a code fix.[/bold yellow]")
+
+
 def handle_commit():
     """Handler for the 'commit' command."""
     console.print("✍️ Generating commit message...")

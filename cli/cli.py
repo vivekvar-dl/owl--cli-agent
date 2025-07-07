@@ -8,6 +8,7 @@ from .handlers import (
     handle_refactor,
     handle_test,
     handle_commit,
+    handle_debug,
 )
 from .ui import display_home_page
 
@@ -45,6 +46,11 @@ def main():
     test_parser.add_argument("file_path", type=str, help="The path to the source code file.")
     test_parser.add_argument("symbol", type=str, nargs="?", help="(Optional) The specific function or class to generate a test for.")
 
+    # 'debug' command
+    debug_parser = subparsers.add_parser("debug", help="Debugs a file based on a traceback or error message.")
+    debug_parser.add_argument("file_path", type=str, help="The path to the source code file.")
+    debug_parser.add_argument("error_message", type=str, help="The traceback or error message to debug.")
+
     # 'commit' command
     subparsers.add_parser("commit", help="Generates a git commit message based on staged changes.")
 
@@ -63,6 +69,8 @@ def main():
         handle_refactor(args.file_path, args.instruction, args.symbol)
     elif args.command == "test":
         handle_test(args.file_path, args.symbol)
+    elif args.command == "debug":
+        handle_debug(args.file_path, args.error_message)
     elif args.command == "commit":
         handle_commit()
 
