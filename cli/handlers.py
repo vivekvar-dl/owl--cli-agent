@@ -224,7 +224,8 @@ def handle_run(instruction: str):
         console.print(f"  > {cmd}")
     console.print(f"\n[italic]Explanation: {explanation}[/italic]")
 
-    if console.input("\n [bold yellow]Execute these commands? [y/n]:[/] ").lower() == 'y':
+    # Check if we should execute without asking
+    if config.auto_execute or console.input("\n [bold yellow]Execute these commands? [y/n]:[/] ").lower() == 'y':
         for cmd in commands:
             console.print(f"\n[bold cyan]$ {cmd}[/bold cyan]")
             try:
@@ -242,6 +243,36 @@ def handle_run(instruction: str):
                 break
     else:
         console.print("[bold yellow]Execution cancelled.[/bold yellow]")
+
+
+def start_interactive_mode():
+    """Starts the interactive chat mode."""
+    console.print("[bold green]Welcome to Interactive Mode![/bold green]")
+    console.print("Type 'exit' or 'quit' to end the session.")
+    
+    conversation_history = []
+
+    while True:
+        try:
+            user_input = console.input("[bold cyan]You: [/bold cyan]")
+            if user_input.lower() in ["exit", "quit"]:
+                break
+
+            conversation_history.append({"role": "user", "content": user_input})
+            
+            # This will be properly implemented in the next step
+            response = gemini_client.generate_next_action(conversation_history, user_input)
+            
+            # For now, just print the raw response
+            console.print(f"[bold yellow]Agent:[/bold yellow] {response}")
+            conversation_history.append({"role": "agent", "content": str(response)})
+
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            console.print(f"[bold red]An error occurred: {e}[/bold red]")
+            
+    console.print("\n[bold green]Exiting Interactive Mode. Goodbye![/bold green]")
 
 
 def handle_commit():

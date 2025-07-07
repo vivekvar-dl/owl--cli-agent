@@ -335,36 +335,14 @@ You are an expert Linux terminal assistant. Your task is to convert a natural la
 
     def _construct_agent_prompt(self, conversation_history: List[Dict[str, str]], user_instruction: str) -> str:
         """Constructs the prompt for the autonomous agent."""
-        tool_definitions = self._get_tool_definitions()
+        # For now, we don't have tools, so this is a simplified prompt.
+        # We will add tool definitions back in when we implement tool usage.
         
-        # Simplified history formatting
         history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history])
 
         return f"""
-You are Owl, a highly capable autonomous AI assistant operating on a Linux system. Your goal is to achieve the user's objective by thinking step-by-step and using the tools at your disposal.
-
-**Current Operating System: Linux**
-
-**Available Tools:**
-You have access to a set of tools for interacting with the system. You can also execute any standard Linux shell command.
-
-{tool_definitions}
-
-**Execution Flow:**
-1.  **Analyze**: Understand the user's request in the context of the conversation history.
-2.  **Plan**: Formulate a step-by-step plan.
-3.  **Act**: Choose ONE action to take. This can be either calling one of the predefined tools OR executing a shell command.
-4.  **Respond**: Your response MUST be a single, valid JSON object containing your next action.
-
-**JSON Response Format:**
-Your entire response must be a single JSON object with the following structure:
-- `thought`: (string) Your reasoning and plan for the next step.
-- `action`: (string) The type of action: either "tool" or "shell".
-- `tool_name`: (string, required if action is "tool") The name of the tool to use.
-- `tool_args`: (object, required if action is "tool") The arguments for the tool.
-- `commands`: (list of strings, required if action is "shell") The shell commands to execute.
-- `explanation`: (string) A brief explanation of what the action will do.
-- `final_answer`: (string, optional) If you have fully completed the user's request, provide the final answer here.
+You are Owl, a helpful and friendly AI assistant operating on a Linux system.
+Your goal is to have a conversation with the user and help them with their tasks.
 
 **Conversation History:**
 {history_str}
@@ -372,7 +350,11 @@ Your entire response must be a single JSON object with the following structure:
 **User's Latest Instruction:**
 "{user_instruction}"
 
-**Your JSON Response:**
+Based on the conversation, provide a helpful response.
+For now, just respond with a simple JSON object like this:
+{{
+    "response": "Your friendly response here."
+}}
 """
 
     def _get_tool_definitions(self) -> str:

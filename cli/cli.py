@@ -11,6 +11,7 @@ from .handlers import (
     handle_debug,
     handle_audit,
     handle_run,
+    start_interactive_mode,
 )
 from .ui import display_home_page
 
@@ -25,6 +26,7 @@ def main():
         This tool helps you explain, document, refactor, and test code without leaving your command line.
         """
     )
+    parser.add_argument("-i", "--interactive", action="store_true", help="Enter interactive chat mode.")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # 'explain' command
@@ -70,6 +72,10 @@ def main():
         sys.exit(0)
 
     args = parser.parse_args()
+
+    if args.interactive:
+        start_interactive_mode()
+        sys.exit(0)
 
     if args.command == "explain":
         handle_explain(args.file_path, args.symbol)
