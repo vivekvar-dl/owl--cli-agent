@@ -8,25 +8,26 @@ import google.generativeai as genai
 from google.generativeai.types import GenerationConfig, content_types
 
 from .config import get_config
+from .tools import TOOL_CONFIG
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
 class GeminiClient:
-    """Client for interacting with the Gemini API."""
-    
-    def __init__(self):
+    """A client for interacting with the Google Gemini API."""
+
+    def __init__(self, api_key: str):
         """Initialize the Gemini API client."""
-        config = get_config()
-        genai.configure(api_key=config.api_key)
-        self.model = genai.GenerativeModel(config.model)
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel('gemini-pro')
+        self.config = get_config()
         self.chat = self.model.start_chat(history=[])
-        logger.info(f"Initialized Gemini client with model: {config.model}")
+        logger.info(f"Initialized Gemini client with model: {self.model.model_name}")
 
     def _get_command_generation_prompt(self) -> str:
         """Constructs the prompt for generating shell commands."""
-        config = get_config()
+        config = self.config
         base_prompt = config.custom_prompt or """
         You are a helpful assistant that translates natural language instructions into shell commands.
         Your task is to:
@@ -47,18 +48,19 @@ class GeminiClient:
         {base_prompt}
         """
 
-    def generate_shell_commands(self, user_instruction: str) -> Dict[str, Any]:
+    def generate_shell_commands(self, instruction: str) -> Dict[str, Any]:
         """
-        Generate shell commands from natural language instruction.
-        
-        Args:
-            user_instruction: The natural language instruction
-            
-        Returns:
-            Dict containing commands and explanation
+        Generates shell commands from a natural language instruction.
+        This is used for the 'run' command.
         """
-        full_instruction = f"{self._get_command_generation_prompt()}\\n\\nUser's request: {user_instruction}"
-        return self._send_request(full_instruction)
+        prompt = self._construct_shell_command_prompt(instruction)
+        try:
+            response = self.model.generate_content(prompt)
+            # Assuming the response is a JSON string
+            return self._parse_json_response(response.text)
+        except Exception as e:
+            logger.error(f"Error generating shell commands: {e}")
+            return {"error": str(e)}
 
     def generate_plan(self, user_instruction: str) -> Dict[str, Any]:
         """Generate a step-by-step plan from a high-level instruction."""
@@ -250,106 +252,17 @@ class GeminiClient:
         """
         return self._send_request(prompt)
 
-    def generate_next_action(self, history: List[Dict[str, Any]], user_instruction: str) -> Dict[str, Any]:
-        """Generates the next action in an open-ended conversational session."""
-        history_str = "This is the conversation history so far:\\n"
-        for item in history:
-            # Simplified history for this prompt
-            actor = "User" if item.get('action') == 'user_instruction' else "Agent"
-            content = ""
-            if actor == "User":
-                content = item.get('instruction', '')
-            else: # Agent action
-                action_type = item.get('action', 'unknown')
-                if action_type == 'shell':
-                    content = f"Ran command: `{' && '.join(item.get('commands', []))}`"
-                elif action_type.startswith('tool:'):
-                    content = f"Used tool: `{action_type.split(':')[1]}` with args `{item.get('args')}`"
-                
-                result = item.get('result', {})
-                if result.get('success', False):
-                    content += f" -> Success. Output: {result.get('output', 'None')}"
-                else:
-                    content += f" -> Failed. Output: {result.get('output', 'None')}"
-
-            history_str += f"{actor}: {content}\\n"
-
-        prompt = f"""
-        You are a conversational AI assistant that helps users accomplish tasks on their command line.
-        You can run shell commands or use available tools.
-
-        **Personalization:**
-        Before you begin, you can use the `manage_profile(action='read')` tool to learn about the user and their preferences. Use this information to tailor your responses and actions.
-
-        **Your Core Task is to answer the user's request. Follow this process rigorously:**
-        1.  **Identify Necessary Information:** First, determine what information you need to answer the user's request.
-        2.  **Information Gathering Strategy:**
-            *   If the information is on the local system, use tools like `read_file` or `list_directory`.
-            *   **If you do not know the answer or how to perform a task, your primary strategy should be to use `web_search` to find guides, documentation, or solutions.**
-        3.  **Gather Raw Data:** Use your tools to get the information. Your goal in this step is ONLY to get the raw data (e.g., file contents, search results). Do not try to process or answer the question in this step.
-        4.  **Analyze and Answer:** After the raw data is in the conversation history, you will be prompted again. In this next turn, analyze the data from the history (e.g., the content from `web_scrape`) and formulate the next step or the final answer.
-
-        **System Administration:**
-        When asked to install, remove, or list software, use the dedicated package management tools. Do not use raw shell commands like `choco`, `apt`, or `brew` directly.
-
-        **Observability & Remediation:**
-        You can monitor files for changes using the `monitor_file` tool. This is useful for watching log files. If you find an error, you can then use another tool or command to try and fix it.
-
-        **Policy Enforcement:**
-        You can check the system for compliance with user-defined policies using the `check_policies` tool. If you find violations, you should report them and suggest a remediation action.
-
-        **Deep System Awareness:**
-        For diagnosing system issues, your primary tool should be `read_windows_event_log`. This provides direct, structured access to the OS's core event logs and is more reliable than reading plain text log files.
-
-        Available Tools:
-        - `read_windows_event_log(log_name: str, event_count: int = 10, event_type: str = "Error")`: Reads the Windows Event Log.
-        - `check_policies()`: Checks for system compliance with user-defined policies.
-        - `monitor_file(file_path: str, keyword: str, timeout: int = 60)`: Watches a file for a keyword.
-        - `install_package(name: str)`: Installs a software package.
-        - `uninstall_package(name: str)`: Uninstalls a software package.
-        - `list_packages(query: str = None)`: Lists installed packages, with an optional search query.
-        - `manage_profile(action: str, key: str = None, value: any = None)`: Reads or updates the user's profile.json.
-        - `web_search(query: str)`: Searches the web for a given query.
-        - `web_scrape(url: str)`: Reads the text content of a web page.
-        - `read_file(file_path: str)`: Reads the entire content of a file.
-        - `write_file(file_path: str, content: str)`: Writes content to a file, creating it if it doesn't exist.
-        - `list_directory(path: str)`: Lists the contents of a directory with details.
-        - `get_cpu_info()`: Gets detailed CPU usage and stats.
-        - `get_memory_info()`: Gets detailed RAM and swap usage.
-        - `get_disk_usage(path: str)`: Gets disk usage for a specific path.
-        - `list_processes()`: Lists running processes with their details.
-
-        **Important:** When asked for system information (CPU, memory, disk, processes, files), ALWAYS prefer the available tools over running shell commands like `ps`, `df`, `ls`, `dir`, etc. The tool output is structured and more reliable.
-
-        Here is the conversation history:
-        {history_str}
-
-        Here is the user's latest request:
-        User: "{user_instruction}"
-
-        Based on the user's request and the conversation so far, decide on the single next best action to take.
-
-        If you need to use a tool, respond in this JSON format:
-        {{
-            "tool": "tool_name",
-            "tool_args": {{"arg1": "value1", ...}},
-            "explanation": "Why you are using this tool."
-        }}
-
-        If you need to run a shell command, respond in this JSON format:
-        {{
-            "commands": ["command1"],
-            "explanation": "Brief explanation of what this command does."
-        }}
-
-        If no action is needed (e.g., the user is just asking a question that you can answer), just provide an explanation.
-        {{
-            "explanation": "Your text-based answer."
-        }}
-
-        Only include the JSON in your response, nothing else.
+    def generate_next_action(self, conversation_history: List[Dict[str, str]], user_instruction: str) -> Dict[str, Any]:
         """
-        return self._send_request(prompt)
+        Generates the next action for the autonomous agent, which can be a tool call or a shell command.
+        """
+        prompt = self._construct_agent_prompt(conversation_history, user_instruction)
+        try:
+            response = self.model.generate_content(prompt)
+            return self._parse_json_response(response.text)
+        except Exception as e:
+            logger.error(f"Error generating next agent action: {e}")
+            return {"error": str(e)}
 
     def generate_audit_report(self, audit_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generates a security audit report from collected data."""
@@ -382,39 +295,11 @@ class GeminiClient:
     def _send_request(self, prompt: str) -> Dict[str, Any]:
         """Sends a request to the Gemini API and handles the response."""
         try:
-            # The 'response_mime_type' is not supported in the user's library version.
-            # The prompt strongly requests JSON, so we rely on that.
-            generation_config = GenerationConfig(
-                temperature=0.2,
-                top_p=0.95,
-                top_k=40
-            )
-            
-            response = self.chat.send_message(
-                prompt,
-                generation_config=generation_config
-            )
-            
-            response_text = response.text
-            
-            # Clean the response to remove markdown fences and other artifacts
-            # This regex is more robust and handles cases with or without the 'json' keyword
-            match = re.search(r"```(?:json)?\s*({[\s\S]*?})\s*```", response_text, re.DOTALL)
-            if match:
-                cleaned_text = match.group(1).strip()
-            else:
-                # If no markdown block is found, assume the whole text is the JSON content
-                cleaned_text = response_text.strip()
-
-            try:
-                return json.loads(cleaned_text)
-            except json.JSONDecodeError:
-                logger.error(f"Failed to parse JSON response: {cleaned_text}")
-                # Fallback for when the model doesn't return valid JSON
-                return {"error": "Failed to parse response from API", "raw_response": cleaned_text}
-                
+            response = self.model.generate_content(prompt)
+            # Basic parsing, assuming JSON is the primary output format
+            return self._parse_json_response(response.text)
         except Exception as e:
-            logger.exception(f"Error calling Gemini API: {str(e)}")
+            logger.error(f"Error calling Gemini API: {e}")
             return {"error": str(e)}
 
     def reset_chat(self):
@@ -422,6 +307,179 @@ class GeminiClient:
         self.chat = self.model.start_chat(history=[])
         logger.info("Chat history has been reset.")
 
+    def _construct_shell_command_prompt(self, instruction: str) -> str:
+        """Constructs the prompt for generating simple shell commands."""
+        return f"""
+You are an expert Linux terminal assistant. Your task is to convert a natural language instruction into a sequence of executable Linux shell commands.
+
+**Constraints:**
+- You must operate on a standard Linux environment (like Ubuntu with a bash shell).
+- The output must be a single, valid JSON object.
+- The JSON object must have two keys: "commands" (a list of strings) and "explanation" (a brief, one-sentence explanation).
+- Do not include any text or formatting outside of the JSON object.
+- The commands should be simple, single-line commands. Avoid complex scripts.
+- Assume standard Linux utilities like `grep`, `awk`, `sed`, `find`, `ps`, etc., are available.
+
+**Instruction:**
+"{instruction}"
+
+**JSON Output:**
+"""
+
+    def _construct_agent_prompt(self, conversation_history: List[Dict[str, str]], user_instruction: str) -> str:
+        """Constructs the prompt for the autonomous agent."""
+        tool_definitions = self._get_tool_definitions()
+        
+        # Simplified history formatting
+        history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history])
+
+        return f"""
+You are Owl, a highly capable autonomous AI assistant operating on a Linux system. Your goal is to achieve the user's objective by thinking step-by-step and using the tools at your disposal.
+
+**Current Operating System: Linux**
+
+**Available Tools:**
+You have access to a set of tools for interacting with the system. You can also execute any standard Linux shell command.
+
+{tool_definitions}
+
+**Execution Flow:**
+1.  **Analyze**: Understand the user's request in the context of the conversation history.
+2.  **Plan**: Formulate a step-by-step plan.
+3.  **Act**: Choose ONE action to take. This can be either calling one of the predefined tools OR executing a shell command.
+4.  **Respond**: Your response MUST be a single, valid JSON object containing your next action.
+
+**JSON Response Format:**
+Your entire response must be a single JSON object with the following structure:
+- `thought`: (string) Your reasoning and plan for the next step.
+- `action`: (string) The type of action: either "tool" or "shell".
+- `tool_name`: (string, required if action is "tool") The name of the tool to use.
+- `tool_args`: (object, required if action is "tool") The arguments for the tool.
+- `commands`: (list of strings, required if action is "shell") The shell commands to execute.
+- `explanation`: (string) A brief explanation of what the action will do.
+- `final_answer`: (string, optional) If you have fully completed the user's request, provide the final answer here.
+
+**Conversation History:**
+{history_str}
+
+**User's Latest Instruction:**
+"{user_instruction}"
+
+**Your JSON Response:**
+"""
+
+    def _get_tool_definitions(self) -> str:
+        """Formats the TOOL_CONFIG into a string for the prompt."""
+        lines = []
+        for name, config in TOOL_CONFIG.items():
+            arg_str = ", ".join([f"{k}: {v}" for k, v in config.get("args", {}).items()])
+            lines.append(f"- `{name}({arg_str})`: {config['description']}")
+        return "\n".join(lines)
+
+    def _parse_json_response(self, response_text: str) -> Dict[str, Any]:
+        """Safely parses a JSON string from the model's response."""
+        try:
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0]
+            
+            return json.loads(response_text)
+        except (json.JSONDecodeError, IndexError) as e:
+            logger.error(f"Failed to parse JSON response: '{response_text}'. Error: {e}")
+            return {"error": "Invalid or unexpected response format from the model."}
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during JSON parsing: {e}")
+            return {"error": "An unexpected error occurred."}
+
+    def generate_explanation(self, code: str) -> Dict[str, Any]:
+        """Generates an explanation for a piece of code."""
+        prompt = f"""
+You are an expert software engineer. Your task is to explain the following code snippet in a clear, concise way.
+Focus on the code's purpose, how it works, and its key components. The output should be in Markdown format.
+
+**Code Snippet:**
+```python
+{code}
+```
+
+**Explanation (in Markdown):**
+"""
+        try:
+            response = self.model.generate_content(prompt)
+            return {"explanation": response.text}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def generate_docstring(self, code: str) -> Dict[str, Any]:
+        """Generates a docstring for a function or class."""
+        prompt = f"""
+You are a senior Python developer who writes excellent documentation.
+Generate a high-quality, Google-style docstring for the following code.
+
+**Code:**
+```python
+{code}
+```
+
+Respond with a single JSON object containing one key, "docstring", with the generated docstring as its value.
+Do not include any other text or formatting.
+"""
+        return self._send_request(prompt)
+
+    def generate_test(self, code: str) -> Dict[str, Any]:
+        """Generates a unit test for a piece of code."""
+        prompt = f"""
+You are a software engineer specializing in Test-Driven Development.
+Write a simple unit test for the following code using the `unittest` library.
+The test should be self-contained in a single file.
+
+**Code to Test:**
+```python
+{code}
+```
+
+Respond with a single JSON object containing one key, "test_code", with the generated Python test code as its value.
+"""
+        return self._send_request(prompt)
+
+    def generate_commit_message(self, diff: str) -> Dict[str, Any]:
+        """Generates a git commit message from a diff."""
+        prompt = f"""
+You are a senior software engineer who writes excellent, conventional git commit messages.
+Based on the following `git diff --staged` output, generate a concise and descriptive commit message.
+
+The commit message should follow the Conventional Commits specification:
+- Format: `<type>[optional scope]: <description>`
+- Example types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
+
+**Staged Diff:**
+```diff
+{diff}
+```
+
+Respond with a single JSON object containing one key, "commit_message", with the generated message as its value.
+"""
+        return self._send_request(prompt)
+
+    def generate_refactor(self, code: str, instruction: str) -> Dict[str, Any]:
+        """Generates a refactored version of a piece of code."""
+        prompt = f"""
+You are an expert software engineer who specializes in writing clean, efficient, and maintainable code.
+Your task is to refactor the following code snippet based on the user's instruction.
+The refactored code must maintain the original functionality.
+
+**User's Refactoring Instruction:**
+"{instruction}"
+
+**Original Code:**
+```python
+{code}
+```
+
+Respond with a single JSON object containing one key, "refactored_code", with the newly refactored code as its value.
+Only provide the code for the function/class that was refactored.
+"""
+        return self._send_request(prompt)
+
 
 # Create a global API client instance
-gemini_client = GeminiClient() 
+gemini_client = GeminiClient(api_key=get_config().api_key) 
