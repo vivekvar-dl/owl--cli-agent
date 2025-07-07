@@ -428,8 +428,17 @@ Generate a high-quality, Google-style docstring for the following code.
 {code}
 ```
 
-Respond with a single JSON object containing one key, "docstring", with the generated docstring as its value.
-Do not include any other text or formatting.
+Your response MUST be a single, valid JSON object. The JSON object must contain one key, "docstring".
+The value for "docstring" MUST be a single JSON string, with all newlines and special characters correctly escaped.
+
+**Example of a valid response format:**
+```json
+{{
+    "docstring": "This is a sample docstring.\\n\\nArgs:\\n    arg1 (int): The first argument."
+}}
+```
+
+Now, generate the response for the code provided.
 """
         return self._send_request(prompt)
 
