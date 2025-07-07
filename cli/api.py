@@ -17,10 +17,18 @@ logger = logging.getLogger(__name__)
 class GeminiClient:
     """A client for interacting with the Google Gemini API."""
 
-    def __init__(self, api_key: str):
-        """Initialize the Gemini API client."""
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+    def __init__(self, api_key: str, model: str = "gemini-1.5-pro-latest"):
+        """
+        Initializes the GeminiClient.
+
+        Args:
+            api_key: The Google API key.
+            model: The model to use for generation.
+        """
+        self.api_key = api_key
+        self.model_name = model
+        genai.configure(api_key=self.api_key)
+        self.model = genai.GenerativeModel(self.model_name)
         self.config = get_config()
         self.chat = self.model.start_chat(history=[])
         logger.info(f"Initialized Gemini client with model: {self.model.model_name}")

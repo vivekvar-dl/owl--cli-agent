@@ -33,6 +33,7 @@ class Config:
     def __post_init__(self):
         """Post-initialization to set up dependent fields."""
         self._file_config = self._load_config_from_file()
+        self.model = self._get_config("GEMINI_MODEL", self.model)
         self.log_dir = self._get_config("CLI_LOG_DIR", os.path.join(self.config_dir, "logs"))
         self.history_file = self._get_config("CLI_HISTORY_FILE", os.path.join(self.config_dir, "history.json"))
         self.max_history = int(self._get_config("CLI_MAX_HISTORY", 100))
@@ -54,7 +55,7 @@ class Config:
         default_config = {
             "api": {
                 "GEMINI_API_KEY": "YOUR_API_KEY_HERE",
-                "GEMINI_MODEL": "gemini-1.5-pro"
+                "GEMINI_MODEL": "gemini-2.5-flash"
             },
             "application": {
                 "CLI_LOG_DIR": os.path.join(self.config_dir, "logs"),

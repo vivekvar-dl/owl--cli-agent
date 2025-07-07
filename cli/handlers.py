@@ -5,7 +5,7 @@ from rich.syntax import Syntax
 
 from .parser import get_symbol_code
 from .api import GeminiClient
-from .config import get_config, get_gemini_api_key
+from .config import get_config
 from .git_utils import get_staged_diff
 import subprocess
 import difflib
@@ -13,8 +13,8 @@ import os
 
 console = Console()
 config = get_config()
-api_key = get_gemini_api_key(config)
-gemini_client = GeminiClient(api_key=api_key)
+api_key = config.api_key
+gemini_client = GeminiClient(api_key=api_key, model=config.model)
 
 def _apply_refactoring(file_path: str, original_content: str, refactored_code: str, start_line: int, end_line: int) -> bool:
     """Replaces the old code block with the refactored code in the file."""

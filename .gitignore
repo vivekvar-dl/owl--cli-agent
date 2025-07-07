@@ -136,4 +136,15 @@ env.bak
 dmypy.json
 
 # Pyre type checker
-.pyre/ 
+.pyre/
+
+# Ignore virtual environments
+venv/
+.venv/
+
+# Ignore sensitive files
+.env
+
+# Ignore Python cache
+__pycache__/
+*.pyc 

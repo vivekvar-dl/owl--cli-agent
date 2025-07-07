@@ -12,7 +12,7 @@ COPY . /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set up the entrypoint to run the CLI
-ENTRYPOINT ["python", "cli/cli.py"]
+ENTRYPOINT ["python", "-m", "cli"]
 
 # The default command can be to show the help message
 CMD ["--help"] 
