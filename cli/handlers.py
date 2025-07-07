@@ -160,6 +160,48 @@ def handle_debug(file_path: str, error_message: str):
         console.print("[bold yellow]The model did not return a code fix.[/bold yellow]")
 
 
+def handle_audit(path: str):
+    """Handler for the 'audit' command."""
+    if not os.path.exists(path):
+        console.print(f"[bold red]Error: Path '{path}' not found.[/bold red]")
+        return
+
+    files_to_audit = []
+    if os.path.isfile(path):
+        if path.endswith(".py"):
+            files_to_audit.append(path)
+        else:
+            console.print(f"[bold yellow]Skipping non-Python file: {path}[/bold yellow]")
+    elif os.path.isdir(path):
+        for root, _, files in os.walk(path):
+            for file in files:
+                if file.endswith(".py"):
+                    files_to_audit.append(os.path.join(root, file))
+
+    if not files_to_audit:
+        console.print("[bold yellow]No Python files found to audit.[/bold yellow]")
+        return
+
+    console.print(f"🛡️  Auditing {len(files_to_audit)} Python file(s)...")
+
+    for file_path in files_to_audit:
+        console.print(f"\n[bold]Auditing: {file_path}[/bold]")
+        with open(file_path, 'r') as f:
+            code = f.read()
+
+        response = gemini_client.generate_audit_report(code)
+
+        if "error" in response:
+            console.print(f"[bold red]  Error from API: {response['error']}[/bold red]")
+            continue
+
+        summary = response.get("summary", "No summary provided.")
+        report = response.get("report", "No report provided.")
+
+        console.print(f"[italic cyan]  Summary: {summary}[/italic cyan]")
+        console.print(Panel(Markdown(report), title="Security Audit Report", border_style="red"))
+
+
 def handle_commit():
     """Handler for the 'commit' command."""
     console.print("✍️ Generating commit message...")

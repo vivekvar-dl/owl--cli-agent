@@ -9,6 +9,7 @@ from .handlers import (
     handle_test,
     handle_commit,
     handle_debug,
+    handle_audit,
 )
 from .ui import display_home_page
 
@@ -51,6 +52,10 @@ def main():
     debug_parser.add_argument("file_path", type=str, help="The path to the source code file.")
     debug_parser.add_argument("error_message", type=str, help="The traceback or error message to debug.")
 
+    # 'audit' command
+    audit_parser = subparsers.add_parser("audit", help="Audits a file or directory for security vulnerabilities.")
+    audit_parser.add_argument("path", type=str, help="The path to the file or directory to audit.")
+
     # 'commit' command
     subparsers.add_parser("commit", help="Generates a git commit message based on staged changes.")
 
@@ -71,6 +76,8 @@ def main():
         handle_test(args.file_path, args.symbol)
     elif args.command == "debug":
         handle_debug(args.file_path, args.error_message)
+    elif args.command == "audit":
+        handle_audit(args.path)
     elif args.command == "commit":
         handle_commit()
 

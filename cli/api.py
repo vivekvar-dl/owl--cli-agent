@@ -272,32 +272,31 @@ class GeminiClient:
             logger.error(f"Error generating next agent action: {e}")
             return {"error": str(e)}
 
-    def generate_audit_report(self, audit_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generates a security audit report from collected data."""
-        
-        # Convert audit data to a string, handling potential large objects
-        data_str = json.dumps(audit_data, indent=2, default=str)
-        if len(data_str) > 30000: # Gemini has a context limit
-            data_str = "Audit data is too large to display, but includes policies, packages, and system info."
-
+    def generate_audit_report(self, code: str) -> Dict[str, Any]:
+        """Generates a security audit report for a piece of code."""
         prompt = f"""
-        You are a professional cybersecurity auditor. Your task is to analyze the provided system data and generate a comprehensive security report in Markdown format.
+You are an expert cybersecurity analyst. Your task is to audit the following Python code for any potential security
+vulnerabilities.
 
-        **Report Structure:**
-        1.  **Executive Summary:** A brief, high-level overview of the system's security posture.
-        2.  **Policy Compliance:** A detailed analysis of any policy violations found.
-        3.  **Software Inventory:** An analysis of the installed packages. Highlight any known vulnerable or outdated software (you may need to use your general knowledge).
-        4.  **System Configuration:** A brief overview of the system's hardware configuration.
-        5.  **Recommendations:** A numbered list of actionable recommendations to improve security.
+Look for common issues such as:
+- Hardcoded secrets (API keys, passwords)
+- SQL injection vulnerabilities
+- Cross-Site Scripting (XSS)
+- Insecure use of cryptography
+- Unsafe deserialization
+- Command injection
+- Use of outdated or insecure libraries
 
-        Here is the data collected from the system:
-        {data_str}
+**Code to Audit:**
+```python
+{code}
+```
 
-        Now, generate the security report. Respond with a JSON object containing a single key "report" with the full Markdown report as its value.
-        {{
-            "report": "# Security Audit Report\\n\\n## 1. Executive Summary\\n\\n..."
-        }}
-        """
+Respond with a single JSON object with two keys:
+1.  `summary`: A one-sentence summary of your findings.
+2.  `report`: A detailed, multi-line report in Markdown format. If you find vulnerabilities, describe them and suggest
+    specific fixes. If you find no issues, state that.
+"""
         return self._send_request(prompt)
 
     def _send_request(self, prompt: str) -> Dict[str, Any]:
