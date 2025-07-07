@@ -202,6 +202,48 @@ def handle_audit(path: str):
         console.print(Panel(Markdown(report), title="Security Audit Report", border_style="red"))
 
 
+def handle_run(instruction: str):
+    """Handler for the 'run' command."""
+    console.print(f"🏃 Executing: '{instruction}'...")
+
+    response = gemini_client.generate_shell_command(instruction)
+
+    if "error" in response:
+        console.print(f"[bold red]Error from API: {response['error']}[/bold red]")
+        return
+
+    commands = response.get("commands")
+    explanation = response.get("explanation", "No explanation provided.")
+
+    if not commands:
+        console.print("[bold yellow]The model did not return any commands to execute.[/bold yellow]")
+        return
+
+    console.print(f"\n[bold]Suggested Commands:[/bold]")
+    for cmd in commands:
+        console.print(f"  > {cmd}")
+    console.print(f"\n[italic]Explanation: {explanation}[/italic]")
+
+    if console.input("\n [bold yellow]Execute these commands? [y/n]:[/] ").lower() == 'y':
+        for cmd in commands:
+            console.print(f"\n[bold cyan]$ {cmd}[/bold cyan]")
+            try:
+                # Using shell=True for convenience, but be aware of security implications.
+                # In a real-world app, we might want to parse the command and args more safely.
+                result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+                if result.stdout:
+                    console.print(result.stdout)
+                if result.stderr:
+                    console.print(f"[yellow]{result.stderr}[/yellow]")
+            except subprocess.CalledProcessError as e:
+                console.print(f"[bold red]Error executing command: {e}[/bold red]")
+                console.print(f"[bold red]STDOUT:[/bold red]\n{e.stdout}")
+                console.print(f"[bold red]STDERR:[/bold red]\n{e.stderr}")
+                break
+    else:
+        console.print("[bold yellow]Execution cancelled.[/bold yellow]")
+
+
 def handle_commit():
     """Handler for the 'commit' command."""
     console.print("✍️ Generating commit message...")

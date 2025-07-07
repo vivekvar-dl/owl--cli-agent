@@ -520,6 +520,26 @@ Your JSON response should be valid and well-formatted.
 """
         return self._send_request(prompt)
 
+    def generate_shell_command(self, instruction: str) -> Dict[str, Any]:
+        """Generates a shell command from a natural language instruction."""
+        prompt = f"""
+You are an expert Linux terminal assistant. Your task is to convert a natural language instruction into a sequence of
+executable Linux shell commands.
+
+**Constraints:**
+- You MUST operate on a standard Linux environment (e.g., Ubuntu with a bash shell).
+- The output MUST be a single, valid JSON object.
+- The JSON object must have two keys: "commands" (a list of strings) and "explanation" (a brief, one-sentence
+  explanation).
+- Do not include any text or formatting outside of the JSON object.
+
+**Instruction:**
+"{instruction}"
+
+**JSON Output:**
+"""
+        return self._send_request(prompt)
+
 
 # Create a global API client instance
 gemini_client = GeminiClient(api_key=get_config().api_key) 

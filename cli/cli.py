@@ -10,6 +10,7 @@ from .handlers import (
     handle_commit,
     handle_debug,
     handle_audit,
+    handle_run,
 )
 from .ui import display_home_page
 
@@ -56,6 +57,10 @@ def main():
     audit_parser = subparsers.add_parser("audit", help="Audits a file or directory for security vulnerabilities.")
     audit_parser.add_argument("path", type=str, help="The path to the file or directory to audit.")
 
+    # 'run' command
+    run_parser = subparsers.add_parser("run", help="Executes a shell command based on a natural language instruction.")
+    run_parser.add_argument("instruction", type=str, nargs='+', help="The natural language instruction to execute.")
+
     # 'commit' command
     subparsers.add_parser("commit", help="Generates a git commit message based on staged changes.")
 
@@ -78,6 +83,8 @@ def main():
         handle_debug(args.file_path, args.error_message)
     elif args.command == "audit":
         handle_audit(args.path)
+    elif args.command == "run":
+        handle_run(" ".join(args.instruction))
     elif args.command == "commit":
         handle_commit()
 
